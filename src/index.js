@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 
 import authRoutes from "./routes/auth.routes.js";
+import fileRoutes from "./routes/file.routes.js";   // ✅ ADD THIS
 import authMiddleware from "./middleware/auth.middleware.js";
 
 dotenv.config();
@@ -13,13 +14,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ Base route (for browser check)
+// Base route (browser check)
 app.get("/", (req, res) => {
   res.send("Cloud Storage Backend is running");
 });
 
 // Auth routes
 app.use("/auth", authRoutes);
+
+// File upload routes (Day-3)
+app.use("/files", fileRoutes);
 
 // Protected test route
 app.get("/protected", authMiddleware, (req, res) => {
