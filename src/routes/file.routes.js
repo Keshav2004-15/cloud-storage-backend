@@ -1,16 +1,57 @@
 import express from "express";
 import authMiddleware from "../middleware/auth.middleware.js";
 import uploadMiddleware from "../middleware/upload.middleware.js";
-import { uploadFile } from "../controllers/file.controller.js";
+
+import {
+  uploadFile,
+  listFiles,
+  renameFile,
+  deleteFile
+} from "../controllers/file.controller.js";
 
 const router = express.Router();
 
-// POST /files/upload
+/* =========================
+   UPLOAD FILE (Day-3)
+   POST /files/upload
+   ========================= */
 router.post(
   "/upload",
-  authMiddleware,       // 1️⃣ JWT check
-  uploadMiddleware,     // 2️⃣ Multer handles file
-  uploadFile            // 3️⃣ Controller logic
+  authMiddleware,       // JWT verification
+  uploadMiddleware,     // Multer handles file
+  uploadFile            // Upload + DB save
+);
+
+/* =========================
+   LIST FILES (Day-4)
+   GET /files
+   GET /files?folder_id=xxx
+   ========================= */
+router.get(
+  "/",
+  authMiddleware,
+  listFiles
+);
+
+/* =========================
+   RENAME FILE (Day-4)
+   PUT /files/:id
+   ========================= */
+router.put(
+  "/:id",
+  authMiddleware,
+  renameFile
+);
+
+/* =========================
+   DELETE FILE (SOFT DELETE / TRASH)
+   DELETE /files/:id
+   ========================= */
+router.delete(
+  "/:id",
+  authMiddleware,
+  deleteFile
 );
 
 export default router;
+
