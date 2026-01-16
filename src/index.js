@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth.routes.js";
 import fileRoutes from "./routes/file.routes.js";
 import folderRoutes from "./routes/folder.routes.js";
 import shareRoutes from "./routes/share.routes.js"; // ✅ Day-5 added
+import searchRoutes from "./routes/search.routes.js";
 import authMiddleware from "./middleware/auth.middleware.js";
 
 dotenv.config();
@@ -32,6 +33,8 @@ app.use("/folders", folderRoutes);
 
 // Share routes (Day-5)
 app.use("/share", shareRoutes);
+
+app.use("/search", searchRoutes);
 
 // Protected test route
 app.get("/protected", authMiddleware, (req, res) => {

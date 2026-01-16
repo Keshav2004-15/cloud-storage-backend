@@ -1,4 +1,4 @@
-  import { supabase } from "../config/supabaseClient.js";
+import { supabase } from "../config/supabaseClient.js";
 
 /* =========================
    UPLOAD FILE (Day-3 + Day-4)
@@ -56,18 +56,25 @@ export const uploadFile = async (req, res) => {
 };
 
 /* =========================
-   LIST FILES (Day-4)
+   LIST FILES (Day-6 Pagination + Lazy Loading)
    ========================= */
 export const listFiles = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { folder_id = null } = req.query;
+    const {
+      folder_id = null,
+      page = 1,
+      limit = 10
+    } = req.query;
+
+    const offset = (page - 1) * limit;
 
     let query = supabase
       .from("files")
       .select("*")
       .eq("owner_id", userId)
-      .eq("is_deleted", false);
+      .eq("is_deleted", false)
+      .range(offset, offset + limit - 1);
 
     if (folder_id) {
       query = query.eq("folder_id", folder_id);
@@ -78,7 +85,11 @@ export const listFiles = async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    res.json(data);
+    res.json({
+      page: Number(page),
+      limit: Number(limit),
+      files: data
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
