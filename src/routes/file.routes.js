@@ -12,18 +12,18 @@ import {
 const router = express.Router();
 
 /* =========================
-   UPLOAD FILE (Day-3)
+   UPLOAD FILE (Day 10)
    POST /files/upload
    ========================= */
 router.post(
   "/upload",
   authMiddleware,       // JWT verification
-  uploadMiddleware,     // Multer handles file
-  uploadFile            // Upload + DB save
+  uploadMiddleware,     // Multer (memory storage)
+  uploadFile            // Supabase upload + DB save
 );
 
 /* =========================
-   LIST FILES (Day-4)
+   LIST FILES
    GET /files
    GET /files?folder_id=xxx
    ========================= */
@@ -34,7 +34,7 @@ router.get(
 );
 
 /* =========================
-   RENAME FILE (Day-4)
+   RENAME FILE
    PUT /files/:id
    ========================= */
 router.put(
@@ -44,7 +44,7 @@ router.put(
 );
 
 /* =========================
-   DELETE FILE (SOFT DELETE / TRASH)
+   DELETE FILE (SOFT DELETE)
    DELETE /files/:id
    ========================= */
 router.delete(

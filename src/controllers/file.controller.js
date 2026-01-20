@@ -1,12 +1,14 @@
 import { supabase } from "../config/supabaseClient.js";
 
 /* =========================
-   UPLOAD FILE (Day-3 + Day-4)
+   UPLOAD FILE (Day 10)
    ========================= */
 export const uploadFile = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded" });
+      return res.status(400).json({
+        message: "No file uploaded",
+      });
     }
 
     const userId = req.user.userId;
@@ -19,16 +21,35 @@ export const uploadFile = async (req, res) => {
 
     const storagePath = `${userId}/${Date.now()}-${fileName}`;
 
-    // Upload to Supabase Storage
+    /* =========================
+       Upload to Supabase Storage
+       ========================= */
     const { error: uploadError } = await supabase.storage
       .from("user-files")
       .upload(storagePath, file.buffer, {
-        contentType: fileType
+        contentType: fileType,
+        upsert: false,
       });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      return res.status(500).json({
+        message: "Storage upload failed",
+        error: uploadError.message,
+      });
+    }
 
-    // Save metadata
+    /* =========================
+       Get Public URL (Preview)
+       ========================= */
+    const { data: publicUrlData } = supabase.storage
+      .from("user-files")
+      .getPublicUrl(storagePath);
+
+    const publicUrl = publicUrlData.publicUrl;
+
+    /* =========================
+       Save Metadata to DB
+       ========================= */
     const { data, error: dbError } = await supabase
       .from("files")
       .insert([
@@ -37,44 +58,48 @@ export const uploadFile = async (req, res) => {
           mime_type: fileType,
           size: fileSize,
           storage_path: storagePath,
+          public_url: publicUrl,
           owner_id: userId,
-          folder_id
-        }
+          folder_id: folder_id || null,
+          is_deleted: false,
+        },
       ])
       .select()
       .single();
 
-    if (dbError) throw dbError;
+    if (dbError) {
+      return res.status(500).json({
+        message: "Database insert failed",
+        error: dbError.message,
+      });
+    }
 
     res.status(201).json({
       message: "File uploaded successfully",
-      file: data
+      file: data,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: "Unexpected upload error",
+      error: error.message,
+    });
   }
 };
 
 /* =========================
-   LIST FILES (Day-6 Pagination + Lazy Loading)
+   LIST FILES (Day 10)
    ========================= */
 export const listFiles = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const {
-      folder_id = null,
-      page = 1,
-      limit = 10
-    } = req.query;
-
-    const offset = (page - 1) * limit;
+    const { folder_id = null } = req.query;
 
     let query = supabase
       .from("files")
       .select("*")
       .eq("owner_id", userId)
       .eq("is_deleted", false)
-      .range(offset, offset + limit - 1);
+      .order("created_at", { ascending: false });
 
     if (folder_id) {
       query = query.eq("folder_id", folder_id);
@@ -83,20 +108,26 @@ export const listFiles = async (req, res) => {
     }
 
     const { data, error } = await query;
-    if (error) throw error;
+
+    if (error) {
+      return res.status(500).json({
+        message: "Failed to fetch files",
+        error: error.message,
+      });
+    }
 
     res.json({
-      page: Number(page),
-      limit: Number(limit),
-      files: data
+      files: data || [],
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };
 
 /* =========================
-   RENAME FILE (Day-4)
+   RENAME FILE
    ========================= */
 export const renameFile = async (req, res) => {
   try {
@@ -104,22 +135,37 @@ export const renameFile = async (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
 
+    if (!name) {
+      return res.status(400).json({
+        message: "New name is required",
+      });
+    }
+
     const { error } = await supabase
       .from("files")
       .update({ name })
       .eq("id", id)
       .eq("owner_id", userId);
 
-    if (error) throw error;
+    if (error) {
+      return res.status(500).json({
+        message: "Rename failed",
+        error: error.message,
+      });
+    }
 
-    res.json({ message: "File renamed successfully" });
+    res.json({
+      message: "File renamed successfully",
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };
 
 /* =========================
-   DELETE FILE (SOFT DELETE / TRASH)
+   DELETE FILE (SOFT DELETE)
    ========================= */
 export const deleteFile = async (req, res) => {
   try {
@@ -132,10 +178,19 @@ export const deleteFile = async (req, res) => {
       .eq("id", id)
       .eq("owner_id", userId);
 
-    if (error) throw error;
+    if (error) {
+      return res.status(500).json({
+        message: "Delete failed",
+        error: error.message,
+      });
+    }
 
-    res.json({ message: "File moved to trash" });
+    res.json({
+      message: "File moved to trash",
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };

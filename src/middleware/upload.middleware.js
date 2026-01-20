@@ -1,17 +1,30 @@
 import multer from "multer";
 
-// Store file in memory (not on disk)
+/**
+ * We use memoryStorage because:
+ * - Files are immediately uploaded to Supabase
+ * - No need to store files on backend disk
+ */
 const storage = multer.memoryStorage();
 
-// Optional: file size limit (e.g. 10MB)
+/**
+ * Multer configuration
+ */
 const upload = multer({
   storage,
   limits: {
     fileSize: 10 * 1024 * 1024 // 10 MB
+  },
+  fileFilter: (req, file, cb) => {
+    // Optional security: allow all for now
+    cb(null, true);
   }
 });
 
-// Accept a single file with key name "file"
+/**
+ * Accept a single file with key name "file"
+ */
 const uploadMiddleware = upload.single("file");
 
 export default uploadMiddleware;
+

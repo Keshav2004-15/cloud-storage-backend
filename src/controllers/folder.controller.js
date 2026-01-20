@@ -1,7 +1,7 @@
 import { supabase } from "../config/supabaseClient.js";
 
 /* =========================
-   CREATE FOLDER (Day-4)
+   CREATE FOLDER
    ========================= */
 export const createFolder = async (req, res) => {
   try {
@@ -13,8 +13,9 @@ export const createFolder = async (req, res) => {
         {
           name,
           parent_id,
-          owner_id: req.user.userId
-        }
+          owner_id: req.user.userId,
+          is_deleted: false,
+        },
       ])
       .select()
       .single();
@@ -23,7 +24,7 @@ export const createFolder = async (req, res) => {
 
     res.status(201).json({
       message: "Folder created successfully",
-      folder: data
+      folder: data,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -31,17 +32,128 @@ export const createFolder = async (req, res) => {
 };
 
 /* =========================
-   LIST FOLDERS (Day-6 Pagination + Lazy Loading)
+   GET ROOT FOLDER (My Drive)
    ========================= */
-export const listFolders = async (req, res) => {
+export const getRootFolder = async (req, res) => {
+  console.log("🔥🔥🔥 getRootFolder HIT 🔥🔥🔥");
+
   try {
     const userId = req.user.userId;
-    const {
-      parent_id = null,
-      page = 1,
-      limit = 10
-    } = req.query;
 
+    /* Root folders */
+    const { data: folders, error: folderError } = await supabase
+      .from("folders")
+      .select("*")
+      .eq("owner_id", userId)
+      .eq("is_deleted", false)
+      .is("parent_id", null);
+
+    if (folderError) throw folderError;
+
+    /* Root files */
+    const { data: files, error: fileError } = await supabase
+      .from("files")
+      .select("*")
+      .eq("owner_id", userId)
+      .eq("is_deleted", false)
+      .is("folder_id", null);
+
+    if (fileError) throw fileError;
+
+    return res.json({
+      folder: {
+        id: null,
+        name: "My Drive",
+      },
+      path: [],
+      children: {
+        folders: folders ?? [],
+        files: files ?? [],
+      },
+    });
+  } catch (err) {
+    console.error("❌ getRootFolder error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/* =========================
+   GET CHILD FOLDER BY ID
+   ========================= */
+export const getFolderById = async (req, res) => {
+  console.log("📂📂📂 getFolderById HIT 📂📂📂");
+
+  try {
+    const userId = req.user.userId;
+    const folderId = req.params.id;
+
+    const { data: folder, error: folderErr } = await supabase
+      .from("folders")
+      .select("*")
+      .eq("id", folderId)
+      .eq("owner_id", userId)
+      .eq("is_deleted", false)
+      .single();
+
+    if (folderErr) throw folderErr;
+
+    const { data: folders, error: childFolderErr } = await supabase
+      .from("folders")
+      .select("*")
+      .eq("parent_id", folderId)
+      .eq("owner_id", userId)
+      .eq("is_deleted", false);
+
+    if (childFolderErr) throw childFolderErr;
+
+    const { data: files, error: fileErr } = await supabase
+      .from("files")
+      .select("*")
+      .eq("folder_id", folderId)
+      .eq("owner_id", userId)
+      .eq("is_deleted", false);
+
+    if (fileErr) throw fileErr;
+
+    const path = [];
+    let current = folder;
+
+    while (current) {
+      path.unshift({ id: current.id, name: current.name });
+      if (!current.parent_id) break;
+
+      const { data: parent } = await supabase
+        .from("folders")
+        .select("id, name, parent_id")
+        .eq("id", current.parent_id)
+        .single();
+
+      current = parent;
+    }
+
+    return res.json({
+      folder,
+      path,
+      children: {
+        folders: folders ?? [],
+        files: files ?? [],
+      },
+    });
+  } catch (err) {
+    console.error("❌ getFolderById error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+/* =========================
+   LIST FOLDERS (Pagination)
+   ========================= */
+export const listFolders = async (req, res) => {
+  console.log("❌❌❌ listFolders HIT ❌❌❌");
+
+  try {
+    const userId = req.user.userId;
+    const { parent_id = null, page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
 
     let query = supabase
@@ -63,7 +175,7 @@ export const listFolders = async (req, res) => {
     res.json({
       page: Number(page),
       limit: Number(limit),
-      folders: data
+      folders: data ?? [],
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -71,7 +183,7 @@ export const listFolders = async (req, res) => {
 };
 
 /* =========================
-   RENAME FOLDER (Day-4)
+   RENAME FOLDER
    ========================= */
 export const renameFolder = async (req, res) => {
   try {
@@ -93,7 +205,7 @@ export const renameFolder = async (req, res) => {
 };
 
 /* =========================
-   DELETE FOLDER (SOFT DELETE / TRASH)
+   DELETE FOLDER (SOFT DELETE)
    ========================= */
 export const deleteFolder = async (req, res) => {
   try {
